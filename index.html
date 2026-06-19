@@ -3,14 +3,28 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta
+      name="description"
+      content="Live, browser-only ElGamal public-key encryption lab. Step through key generation, non-deterministic encryption, decryption math, multiplicative homomorphism, and mix-net re-randomization over a toy group and RFC 3526 Group 14."
+    />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#09121f" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#eaf2fb" media="(prefers-color-scheme: light)" />
     <script>
-      const saved = localStorage.getItem('theme');
-      document.documentElement.setAttribute('data-theme', saved ?? 'dark');
+      // Resolve the initial theme before first paint to avoid a flash:
+      // an explicit saved choice wins, otherwise follow the OS preference.
+      (function () {
+        const saved = localStorage.getItem('theme');
+        const prefersLight = window.matchMedia('(prefers-color-scheme: light)').matches;
+        const theme = saved ?? (prefersLight ? 'light' : 'dark');
+        document.documentElement.setAttribute('data-theme', theme);
+      })();
     </script>
-    <title>crypto-lab-elgamal-plain</title>
+    <title>ElGamal Lab — Interactive Public-Key Encryption Demo</title>
   </head>
   <body>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
     <div id="app"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>

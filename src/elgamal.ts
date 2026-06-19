@@ -34,24 +34,36 @@ export function generateKeyPair(group: ElGamalGroup): ElGamalKeyPair {
   };
 }
 
+/**
+ * Encrypt with a caller-supplied ephemeral exponent k.
+ *
+ * Exposed mainly so the teaching UI can demonstrate the catastrophic
+ * consequence of REUSING k across two encryptions. Production code must
+ * never reuse k; always draw a fresh random value per message.
+ */
+export function encryptWithEphemeral(
+  message: bigint,
+  publicKey: bigint,
+  group: ElGamalGroup,
+  ephemeralK: bigint
+): ElGamalCiphertext {
+  assertMessageInGroup(message, group);
+
+  const c1 = modPow(group.g, ephemeralK, group.p);
+  const yk = modPow(publicKey, ephemeralK, group.p);
+  const c2 = (message * yk) % group.p;
+
+  return { c1, c2, group };
+}
+
 export function encrypt(
   message: bigint,
   publicKey: bigint,
   group: ElGamalGroup
 ): { ciphertext: ElGamalCiphertext; ephemeralK: bigint } {
-  assertMessageInGroup(message, group);
-
   const ephemeralK = randomBigInt(group.q);
-  const c1 = modPow(group.g, ephemeralK, group.p);
-  const yk = modPow(publicKey, ephemeralK, group.p);
-  const c2 = (message * yk) % group.p;
-
   return {
-    ciphertext: {
-      c1,
-      c2,
-      group,
-    },
+    ciphertext: encryptWithEphemeral(message, publicKey, group, ephemeralK),
     ephemeralK,
   };
 }
@@ -76,7 +88,7 @@ export function textToMessage(text: string, group: ElGamalGroup): bigint {
     throw new Error('Text message must be non-empty.');
   }
 
-  let m = 0n;
+  let m = 1n;
   for (const byte of bytes) {
     m = (m << 8n) | BigInt(byte);
   }
@@ -91,7 +103,7 @@ export function messageToText(m: bigint, group: ElGamalGroup): string {
   const bytes: number[] = [];
   let value = m;
 
-  while (value > 0n) {
+  while (value > 1n) {
     bytes.push(Number(value & 0xffn));
     value >>= 8n;
   }

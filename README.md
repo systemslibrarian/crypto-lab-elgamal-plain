@@ -6,12 +6,16 @@ Browser-based ElGamal public-key encryption demo implementing Taher ElGamal's 19
 
 This project is an educational, no-backend lab for plain ElGamal encryption:
 
+- Opens with a **guided walkthrough** that steps through one full encrypt/decrypt with live values
 - Uses BigInt for all modular arithmetic
 - Uses square-and-multiply modular exponentiation
 - Uses `crypto.getRandomValues` for all randomness
 - Demonstrates natural non-determinism (fresh ephemeral `k`)
+- Visualizes the discrete-log hardness with an interactive `g^x mod p` scatter plot
 - Demonstrates multiplicative homomorphism
 - Demonstrates ciphertext re-randomization for mix-net style unlinkability
+- Implements the **ElGamal signature scheme** (sign / verify) over a primitive-root group
+- Includes an interactive **Security Lab** that lets you break the scheme yourself
 - Includes a side-by-side ElGamal vs RSA exhibit
 
 The app includes two parameter sets:
@@ -35,12 +39,56 @@ Do not use this for bulk file encryption. Plain ElGamal ciphertexts are large an
 
 https://systemslibrarian.github.io/crypto-lab-elgamal-plain/
 
+## Development & Tests
+
+```bash
+npm install
+npm run dev     # local dev server
+npm run build   # type-check (tsc) + production build
+npm test        # Vitest suite (run once)
+npm run test:watch
+```
+
+A committed Vitest suite proves the correctness of every primitive and every attack, so the
+educational claims are permanent and regression-checked, not ad hoc:
+
+- `modular.test.ts` — modexp, extended GCD, modular inverse, rejection-sampled randomness, primality
+- `elgamal.test.ts` — encrypt/decrypt round-trips, non-determinism, homomorphism, re-randomization, text codec
+- `attacks.test.ts` — baby-step/giant-step key recovery, and the feasibility guard refusing the 2048-bit group
+- `authenticated.test.ts` — authenticated round-trip plus rejection of malleability and forged tags
+- `signatures.test.ts` — sign/verify, forgery rejection, the congruence solver, and full key recovery from a reused nonce
+
+CI runs the suite on every pull request (`.github/workflows/ci.yml`) and gates the GitHub Pages
+deploy on a green run (`.github/workflows/deploy.yml`).
+
+## Security Lab
+
+The app does not just describe the failure modes — it lets you trigger them and watch the math:
+
+- **Cracking the key (Exhibit 4):** recovers a toy private key from its public key with a
+  baby-step/giant-step discrete-log solver (`src/attacks.ts`). The same routine is hard-guarded
+  against the 2048-bit group, encoding the security argument as code.
+- **Ephemeral-key reuse (Exhibit 5):** encrypts two messages under one reused `k`; the shared `c1`
+  lets an attacker who knows one plaintext recover the other with a single modular division — no
+  private key involved.
+- **Ciphertext malleability (Exhibit 6):** an attacker multiplies `c2` by a factor `t` with no key
+  and no knowledge of the plaintext, and the owner's decryption silently becomes `m·t`, showing why
+  plain ElGamal is not CCA-secure.
+- **Authenticated ElGamal — the fix (Exhibit 7):** a DHIES/ECIES-style construction
+  (`src/authenticated.ts`) derives an HMAC-SHA-256 key from the Diffie-Hellman shared secret and tags
+  the ciphertext. The exact Exhibit 6 attack is now detected and decryption is refused — at the cost of
+  the homomorphism, the tradeoff that pushes voting systems toward Cramer-Shoup or zero-knowledge proofs.
+- **Signature nonce reuse — total key recovery (Exhibit 9):** signing two messages with the same `k`
+  (`src/signatures.ts`) makes the signatures share `r`; solving the resulting linear congruences recovers
+  the signer's entire private key. This is the real Sony PS3 ECDSA break, and a far worse outcome than the
+  single-message leak from encryption-side reuse (Exhibit 5).
+
 ## What Can Go Wrong
 
-- Plain ElGamal is malleable. An attacker can transform ciphertexts algebraically into related plaintexts.
-- Reusing ephemeral `k` is catastrophic and can leak key material.
+- Plain ElGamal is malleable. An attacker can transform ciphertexts algebraically into related plaintexts. (Exhibit 6)
+- Reusing ephemeral `k` is catastrophic: it leaks a message in encryption (Exhibit 5) and the entire private key in signatures (Exhibit 9).
 - Weak message encodings can leak structure (`m=0`, `m=1`, or low-entropy domains).
-- The toy group is intentionally insecure and brute-force breakable.
+- The toy group is intentionally insecure and brute-force breakable. (Exhibit 4)
 - Post-quantum note: ElGamal over finite fields is broken by Shor's algorithm on a large quantum computer.
 
 ## Real-World Usage
