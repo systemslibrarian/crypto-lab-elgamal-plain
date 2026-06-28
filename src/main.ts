@@ -312,6 +312,12 @@ app.innerHTML = `
     </section>
 
     <footer class="site-footer">
+      <p>Related demos:
+        <a href="https://systemslibrarian.github.io/crypto-lab-rsa-forge/" target="_blank" rel="noopener noreferrer">crypto-lab-rsa-forge</a> ·
+        <a href="https://systemslibrarian.github.io/crypto-lab-paillier-gate/" target="_blank" rel="noopener noreferrer">crypto-lab-paillier-gate</a> ·
+        <a href="https://systemslibrarian.github.io/crypto-lab-threshold-decrypt/" target="_blank" rel="noopener noreferrer">crypto-lab-threshold-decrypt</a> ·
+        <a href="https://systemslibrarian.github.io/crypto-lab-key-exchange/" target="_blank" rel="noopener noreferrer">crypto-lab-key-exchange</a>
+      </p>
       <p>All computation runs locally in your browser. No data leaves your device. Toy group is intentionally insecure &mdash; for learning only.</p>
     </footer>
   </main>
