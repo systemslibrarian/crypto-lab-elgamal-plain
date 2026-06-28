@@ -1,10 +1,8 @@
 # crypto-lab-elgamal-plain
 
-Browser-based ElGamal public-key encryption demo implementing Taher ElGamal's 1985 scheme over RFC 3526 Group 14 (2048-bit) and a toy 11-bit group for transparent arithmetic.
-
 ## What It Is
 
-This project is an educational, no-backend lab for plain ElGamal encryption:
+This project is an educational, no-backend lab for plain ElGamal encryption, implementing Taher ElGamal's 1985 scheme over RFC 3526 Group 14 (2048-bit) and a toy 11-bit group for transparent arithmetic:
 
 - Opens with a **guided walkthrough** that steps through one full encrypt/decrypt with live values
 - Uses BigInt for all modular arithmetic
@@ -37,7 +35,43 @@ Do not use this for bulk file encryption. Plain ElGamal ciphertexts are large an
 
 ## Live Demo
 
-https://systemslibrarian.github.io/crypto-lab-elgamal-plain/
+**[systemslibrarian.github.io/crypto-lab-elgamal-plain](https://systemslibrarian.github.io/crypto-lab-elgamal-plain/)**
+
+The demo opens with a guided encrypt/decrypt walkthrough showing live values, plots the discrete-log hardness as a `g^x mod p` scatter, and demonstrates multiplicative homomorphism and ciphertext re-randomization. A Security Lab lets you trigger the failure modes yourself — discrete-log key recovery on the toy group, ephemeral-key reuse, ciphertext malleability, and signature nonce reuse — and an authenticated ElGamal exhibit shows the fix. You can switch between the toy group (`p = 2039`) and RFC 3526 Group 14.
+
+## What Can Go Wrong
+
+- Plain ElGamal is malleable. An attacker can transform ciphertexts algebraically into related plaintexts. (Exhibit 6)
+- Reusing ephemeral `k` is catastrophic: it leaks a message in encryption (Exhibit 5) and the entire private key in signatures (Exhibit 9).
+- Weak message encodings can leak structure (`m=0`, `m=1`, or low-entropy domains).
+- The toy group is intentionally insecure and brute-force breakable. (Exhibit 4)
+- Post-quantum note: ElGamal over finite fields is broken by Shor's algorithm on a large quantum computer.
+
+## Real-World Usage
+
+Taher ElGamal's 1985 paper, _A Public Key Cryptosystem and a Signature Scheme Based on Discrete Logarithms_, introduced a practical DLP-based public-key design that strongly influenced modern cryptography.
+
+- DSA standardized ElGamal's signature lineage
+- Threshold ElGamal is used in distributed decryption and voting pipelines
+- Exponential ElGamal appears in privacy-preserving vote tally systems
+- Cramer-Shoup can be seen as a hardened ElGamal-family construction
+- RFC 3526 Group 14 is widely deployed in historical DH deployments (IPsec, SSH, TLS 1.2 finite-field DH)
+
+## How to Run Locally
+
+```bash
+git clone https://github.com/systemslibrarian/crypto-lab-elgamal-plain
+cd crypto-lab-elgamal-plain
+npm install
+npm run dev
+```
+
+## Related Demos
+
+- [crypto-lab-rsa-forge](https://systemslibrarian.github.io/crypto-lab-rsa-forge/) — the other classic public-key family, contrasted with ElGamal in the demo.
+- [crypto-lab-paillier-gate](https://systemslibrarian.github.io/crypto-lab-paillier-gate/) — additively homomorphic encryption for private voting and aggregation.
+- [crypto-lab-threshold-decrypt](https://systemslibrarian.github.io/crypto-lab-threshold-decrypt/) — t-of-n threshold ElGamal decryption with NIZK proofs.
+- [crypto-lab-key-exchange](https://systemslibrarian.github.io/crypto-lab-key-exchange/) — Diffie-Hellman, the discrete-log key agreement ElGamal is built on.
 
 ## Development & Tests
 
@@ -83,20 +117,8 @@ The app does not just describe the failure modes — it lets you trigger them an
   the signer's entire private key. This is the real Sony PS3 ECDSA break, and a far worse outcome than the
   single-message leak from encryption-side reuse (Exhibit 5).
 
-## What Can Go Wrong
+---
 
-- Plain ElGamal is malleable. An attacker can transform ciphertexts algebraically into related plaintexts. (Exhibit 6)
-- Reusing ephemeral `k` is catastrophic: it leaks a message in encryption (Exhibit 5) and the entire private key in signatures (Exhibit 9).
-- Weak message encodings can leak structure (`m=0`, `m=1`, or low-entropy domains).
-- The toy group is intentionally insecure and brute-force breakable. (Exhibit 4)
-- Post-quantum note: ElGamal over finite fields is broken by Shor's algorithm on a large quantum computer.
+*One of 60+ browser demos in the [Crypto Lab](https://crypto-lab.systemslibrarian.dev/) suite.*
 
-## Real-World Usage
-
-Taher ElGamal's 1985 paper, _A Public Key Cryptosystem and a Signature Scheme Based on Discrete Logarithms_, introduced a practical DLP-based public-key design that strongly influenced modern cryptography.
-
-- DSA standardized ElGamal's signature lineage
-- Threshold ElGamal is used in distributed decryption and voting pipelines
-- Exponential ElGamal appears in privacy-preserving vote tally systems
-- Cramer-Shoup can be seen as a hardened ElGamal-family construction
-- RFC 3526 Group 14 is widely deployed in historical DH deployments (IPsec, SSH, TLS 1.2 finite-field DH)
+*"So whether you eat or drink or whatever you do, do it all for the glory of God." — 1 Corinthians 10:31*
