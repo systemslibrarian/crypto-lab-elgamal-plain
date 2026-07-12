@@ -13,21 +13,30 @@ if (!app) {
 
 app.innerHTML = `
   <main id="main-content" class="page" tabindex="-1" aria-labelledby="page-title">
-    <header class="hero">
-      <div class="hero-top">
-        <p class="kicker">crypto-lab · elgamal-plain</p>
-        <button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false">
-          <span class="theme-icon" aria-hidden="true"></span>
-          <span id="theme-label">Dark</span>
-        </button>
+    <header class="cl-hero">
+      <div class="cl-hero-main">
+        <h1 class="cl-hero-title" id="page-title">ElGamal</h1>
+        <p class="cl-hero-sub">Public-Key Encryption · Discrete-Log Problem</p>
+        <p class="cl-hero-desc">
+          Encrypt, decrypt, multiply ciphertexts homomorphically, and re-randomize them in a
+          browser-only lab over a toy group and RFC 3526 Group 14 &mdash; every value computed on your device.
+        </p>
       </div>
-      <h1 id="page-title">ElGamal: The First Practical Public-Key Encryption</h1>
-      <p class="subtitle">
-        Live, browser-only ElGamal over a toy group and RFC 3526 Group 14. Watch non-determinism,
-        decryption math, homomorphic multiplication, and ciphertext re-randomization &mdash; every
-        value computed on your device, nothing sent anywhere.
-      </p>
-      <ul class="legend" aria-label="Color key for the variables used below">
+      <aside class="cl-hero-why" aria-label="Why it matters">
+        <span class="cl-hero-why-label">WHY IT MATTERS</span>
+        <p class="cl-hero-why-text">
+          The discrete-log problem underpins ElGamal, DSA, and Diffie-Hellman. Homomorphic,
+          non-deterministic ciphertexts power mix-nets and e-voting &mdash; yet weak groups, reused
+          nonces, and malleability turn that same math into real breaks.
+        </p>
+      </aside>
+    </header>
+
+    <button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false">
+      <span class="theme-icon" aria-hidden="true"></span>
+      <span id="theme-label">Dark</span>
+    </button>
+    <ul class="legend" aria-label="Color key for the variables used below">
         <li><span class="swatch pub" aria-hidden="true"></span> public key y</li>
         <li><span class="swatch priv" aria-hidden="true"></span> private key x</li>
         <li><span class="swatch k" aria-hidden="true"></span> ephemeral k</li>

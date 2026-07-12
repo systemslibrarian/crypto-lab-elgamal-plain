@@ -120,7 +120,6 @@ body {
   outline: none;
 }
 
-.hero,
 .card {
   border: 1px solid var(--line);
   border-radius: 16px;
@@ -128,25 +127,19 @@ body {
   box-shadow: 0 14px 38px rgba(0, 0, 0, 0.24);
 }
 
-.hero {
-  padding: 1.2rem;
-}
-
-.hero-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.kicker {
-  margin: 0;
-  font-size: 0.78rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--t-pub);
-  font-weight: 600;
-}
+/* BEGIN cl-hero standard — managed, keep in sync across fleet */
+/* Theme mapping for this demo: --text-dim -> --text-soft, --accent -> --public,
+   --border -> --line. Colors verified for axe contrast in dark + light. */
+.cl-hero{display:flex;align-items:flex-start;justify-content:space-between;gap:clamp(1rem,4vw,3rem);flex-wrap:wrap;margin:clamp(1rem,3vw,2rem) 0 1.5rem;}
+.cl-hero-main{flex:1 1 22rem;min-width:min(100%,20rem);}
+.cl-hero-title{margin:0;font-size:clamp(1.6rem,3.8vw,2.7rem);font-weight:700;line-height:1.1;letter-spacing:.01em;}
+.cl-hero-sub{margin:.4rem 0 0;font-size:clamp(.9rem,1.6vw,1.05rem);letter-spacing:.01em;opacity:.85;}
+.cl-hero-desc{margin:.55rem 0 0;font-size:1rem;line-height:1.5;color:var(--text-soft);max-width:60ch;}
+.cl-hero-why{flex:0 1 min(40%,26rem);min-width:min(100%,15rem);border:1px solid var(--line);border-radius:10px;padding:.85rem 1.05rem;background:color-mix(in oklab,var(--public) 6%,transparent);}
+.cl-hero-why-label{display:block;font-size:.68rem;font-weight:700;letter-spacing:.14em;color:var(--t-pub);}
+.cl-hero-why-text{margin:.35rem 0 0;font-size:.95rem;line-height:1.5;color:var(--text-soft);}
+@media (max-width:640px){.cl-hero{flex-direction:column;}.cl-hero-why{flex-basis:auto;width:100%;}}
+/* END cl-hero standard */
 
 h1,
 h2 {
@@ -179,12 +172,6 @@ h2 {
   font-size: 0.95rem;
   font-weight: 700;
   flex: none;
-}
-
-.subtitle {
-  color: var(--text-soft);
-  max-width: 70ch;
-  margin: 0.7rem 0 0;
 }
 
 /* --- Color legend --------------------------------------------------------- */
@@ -706,7 +693,6 @@ tbody th[scope='row'] {
     align-items: end;
   }
 
-  .hero,
   .card {
     padding: 1.3rem;
   }
@@ -728,7 +714,7 @@ tbody th[scope='row'] {
 /* --- High contrast preference --------------------------------------------- */
 
 @media (prefers-contrast: more) {
-  .hero,
+  .cl-hero-why,
   .card,
   input,
   select,
