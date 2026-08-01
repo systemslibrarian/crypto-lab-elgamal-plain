@@ -304,7 +304,7 @@ app.innerHTML = `
           </tbody>
         </table>
       </div>
-      <p class="note">Taher ElGamal also designed SSL 3.0 at Netscape, a direct ancestor of modern TLS.</p>
+      <p class="note">Taher ElGamal was Netscape's chief scientist and led the SSL effort there, which is why he is often called the father of SSL — a direct ancestor of modern TLS. The SSL 3.0 specification itself was written by Alan Freier, Philip Karlton, and Paul Kocher, later published as RFC 6101.</p>
     </section>
 
     <section class="card" aria-labelledby="exhibit11-title">
