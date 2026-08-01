@@ -44,7 +44,6 @@ app.innerHTML = `
         <li><span class="swatch c2" aria-hidden="true"></span> c2</li>
         <li><span class="swatch m" aria-hidden="true"></span> message m</li>
       </ul>
-    </header>
 
     <section class="card walkthrough" aria-labelledby="walkthrough-title">
       <h2 id="walkthrough-title"><span class="badge" aria-hidden="true"></span> Guided Walkthrough</h2>
