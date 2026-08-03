@@ -1,6 +1,6 @@
 import { defineConfig } from '@playwright/test';
 
-const PORT = 4222;
+const PORT = 4633;
 const BASE = '/crypto-lab-elgamal-plain/';
 
 export default defineConfig({
