@@ -81,6 +81,7 @@ npm run dev     # local dev server
 npm run build   # type-check (tsc) + production build
 npm test        # Vitest suite (run once)
 npm run test:watch
+npm run test:e2e  # Playwright: a11y scan + functional claims, against the built page
 ```
 
 A committed Vitest suite proves the correctness of every primitive and every attack, so the
@@ -92,7 +93,18 @@ educational claims are permanent and regression-checked, not ad hoc:
 - `authenticated.test.ts` — authenticated round-trip plus rejection of malleability and forged tags
 - `signatures.test.ts` — sign/verify, forgery rejection, the congruence solver, and full key recovery from a reused nonce
 
-CI runs the suite on every pull request (`.github/workflows/ci.yml`) and gates the GitHub Pages
+A Playwright suite then drives the built page in Chromium, so the exhibits are checked as rendered,
+not just as modules:
+
+- `e2e/a11y.spec.ts` — axe-core WCAG 2.1 A/AA scan in both themes
+- `e2e/claims.spec.ts` — every headline verdict on screen, re-derived from the numbers the page
+  itself printed: the walkthrough's ten-step encrypt/decrypt chain, `y = g^x mod p` for the generated
+  keypair, the homomorphic product and re-randomized ciphertexts, the mix-net's preserved ballots,
+  the baby-step/giant-step recovery together with its own step counter, each attack's recovered
+  secret, the authenticated-ElGamal rejection, the signing congruence, and every failure path's
+  error message
+
+CI runs both suites on every pull request (`.github/workflows/ci.yml`) and gates the GitHub Pages
 deploy on a green run (`.github/workflows/deploy.yml`).
 
 ## Security Lab
