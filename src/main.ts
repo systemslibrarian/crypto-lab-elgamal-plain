@@ -32,10 +32,6 @@ app.innerHTML = `
       </aside>
     </header>
 
-    <button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false">
-      <span class="theme-icon" aria-hidden="true"></span>
-      <span id="theme-label">Dark</span>
-    </button>
     <ul class="legend" aria-label="Color key for the variables used below">
         <li><span class="swatch pub" aria-hidden="true"></span> public key y</li>
         <li><span class="swatch priv" aria-hidden="true"></span> private key x</li>
@@ -431,28 +427,6 @@ function ensureKeypair(): ElGamalKeyPair {
   }
   return keypair;
 }
-
-// --- Theme toggle -----------------------------------------------------------
-
-const themeToggle = must<HTMLButtonElement>('theme-toggle');
-const themeLabel = must<HTMLSpanElement>('theme-label');
-
-function syncThemeButton(): void {
-  const isDark = (document.documentElement.getAttribute('data-theme') ?? 'dark') === 'dark';
-  themeLabel.textContent = isDark ? 'Dark' : 'Light';
-  themeToggle.setAttribute('aria-pressed', String(isDark));
-  themeToggle.setAttribute('aria-label', isDark ? 'Switch to light theme' : 'Switch to dark theme');
-}
-
-syncThemeButton();
-
-themeToggle.addEventListener('click', () => {
-  const current = document.documentElement.getAttribute('data-theme') ?? 'dark';
-  const next = current === 'dark' ? 'light' : 'dark';
-  document.documentElement.setAttribute('data-theme', next);
-  localStorage.setItem('theme', next);
-  syncThemeButton();
-});
 
 // --- Copy buttons -----------------------------------------------------------
 
