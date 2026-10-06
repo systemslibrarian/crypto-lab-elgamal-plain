@@ -60,6 +60,65 @@ export function initializeGroup14(verifyPrime = false): ElGamalGroup {
 
 export const GROUP14 = initializeGroup14();
 
+/**
+ * Fail closed on a group element that arrived from OUTSIDE this module, before
+ * it reaches any private-key operation or any encryption.
+ *
+ * Why this is not optional. ElGamal's decryption computes c1^x mod p, so the
+ * sender chooses the base of an exponentiation by the recipient's private key.
+ * Two choices are free wins for an attacker:
+ *
+ *   c1 = 1      -> the shared secret is 1^x = 1 for EVERY x. The attacker knows
+ *                  the secret without knowing the key, so in the authenticated
+ *                  construction they can derive the HMAC key and forge a tag
+ *                  that verifies.
+ *   c1 = p - 1  -> the shared secret is (-1)^x, which is 1 when x is even and
+ *                  p-1 when it is odd. Whether the recipient accepts therefore
+ *                  reveals x mod 2 -- one bit of the private key per query,
+ *                  leaked by nothing more than the accept/reject outcome.
+ *
+ * A base outside the prime-order subgroup is the general case of the second:
+ * exponentiating it confines the result to a small subgroup and leaks x modulo
+ * that subgroup's order. Both groups here are safe primes (p = 2q + 1) with
+ * p = 7 mod 8, so g = 2 really does generate the order-q subgroup and every
+ * honestly produced c1 and public key is inside it -- the check refuses attack
+ * values without refusing anything the lab itself computes.
+ *
+ * Order matters: the range test has to run as well as the subgroup test, not
+ * instead of it. 1^q mod p == 1, so the subgroup test ALONE accepts c1 = 1,
+ * which is the stronger of the two attacks.
+ */
+export function assertGroupElement(x: bigint, group: ElGamalGroup, label: string): void {
+  /* Read q defensively rather than trusting the declared type. RFC3526_GROUP14
+   * is exported as a literal carrying `q: 0n` and only initializeGroup14()
+   * fills it in, so a caller reaching for the raw constant would hand us a
+   * group whose subgroup test is `x^0 mod p === 1` -- true for every x, a check
+   * that passes everything while looking like a check. Refuse instead. */
+  const q = (group as { q?: bigint }).q;
+  if (typeof q !== 'bigint' || q <= 0n) {
+    throw new Error(
+      `Cannot validate ${label}: this group carries no subgroup order q, so the ` +
+        'subgroup test would accept every value. RFC3526_GROUP14 is exported with ' +
+        'q: 0n and only initializeGroup14() fills it -- use GROUP14, not the raw constant.'
+    );
+  }
+
+  if (x <= 1n || x >= group.p - 1n) {
+    throw new Error(
+      `Invalid ${label}: must satisfy 1 < ${label} < p-1. Refused 0, 1, p-1 and ` +
+        'anything at or above p -- see the note on why 1 and p-1 are attacks rather ' +
+        'than edge cases.'
+    );
+  }
+
+  if (modPow(x, q, group.p) !== 1n) {
+    throw new Error(
+      `Invalid ${label}: not in the prime-order subgroup (${label}^q mod p != 1), ` +
+        'so exponentiating it would leak the private key modulo a small order.'
+    );
+  }
+}
+
 export function validateGroupGenerator(group: ElGamalGroup): boolean {
   return modPow(group.g, group.q, group.p) === 1n;
 }

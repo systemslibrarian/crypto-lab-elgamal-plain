@@ -1,4 +1,4 @@
-import type { ElGamalGroup } from './groups';
+import { assertGroupElement, type ElGamalGroup } from './groups';
 import { modInverse, modPow, randomBigInt } from './modular';
 
 /**
@@ -72,6 +72,8 @@ export async function authEncrypt(
     throw new Error('Message must be in [1, p-1].');
   }
 
+  assertGroupElement(publicKey, group, 'publicKey');
+
   const k = randomBigInt(group.q);
   const c1 = modPow(group.g, k, group.p);
   const sharedSecret = modPow(publicKey, k, group.p);
@@ -88,6 +90,17 @@ export async function authDecrypt(
   privateKey: bigint,
   group: ElGamalGroup
 ): Promise<AuthDecryptResult> {
+  /* BEFORE the exponentiation and BEFORE the key derivation. This function's
+   * normal failure is `{ authentic: false }`, and an invalid group element is
+   * deliberately NOT reported that way: "inauthentic" is a verdict about a
+   * well-formed ciphertext, and folding a malformed one into it would let a
+   * caller treat the two as the same answer. It throws.
+   *
+   * The c1 = 1 forgery is the reason this cannot sit after deriveMacKey: with
+   * c1 = 1 the shared secret is 1 whatever the private key is, so an attacker
+   * can derive this very HMAC key and produce a tag that verifies. */
+  assertGroupElement(ciphertext.c1, group, 'c1');
+
   const sharedSecret = modPow(ciphertext.c1, privateKey, group.p);
   const key = await deriveMacKey(sharedSecret);
   

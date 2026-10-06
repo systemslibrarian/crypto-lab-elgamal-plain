@@ -731,9 +731,14 @@ must<HTMLButtonElement>('decrypt-btn').addEventListener('click', () => {
       throw new Error('No ciphertext available. Encrypt first.');
     }
 
+    /* decrypt() FIRST, because it is what validates c1. The two lines below
+     * re-derive s and s-inverse only to show the reader the intermediate
+     * values, and computing them above this call would perform the private-key
+     * exponentiation on an unvalidated c1 -- the library check, stepped around
+     * by the page that calls it. */
+    const recovered = decrypt(lastCiphertext, keys.privateKey, selectedGroup);
     const s = modPow(lastCiphertext.c1, keys.privateKey, selectedGroup.p);
     const sInv = modInverse(s, selectedGroup.p);
-    const recovered = decrypt(lastCiphertext, keys.privateKey, selectedGroup);
 
     const decoded = messageModeSelect.value === 'text'
       ? `\nDecoded text: "${esc(messageToText(recovered, selectedGroup))}"`
