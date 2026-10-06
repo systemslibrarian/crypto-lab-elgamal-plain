@@ -1,4 +1,4 @@
-import type { ElGamalGroup } from './groups';
+import { assertGroupElement, type ElGamalGroup } from './groups';
 import { modInverse, modPow, randomBigInt } from './modular';
 
 export interface ElGamalKeyPair {
@@ -48,6 +48,10 @@ export function encryptWithEphemeral(
   ephemeralK: bigint
 ): ElGamalCiphertext {
   assertMessageInGroup(message, group);
+  /* y is supplied by the caller and is immediately raised to a secret exponent.
+   * c1 = g^k needs no check: this function computes it from the group's own
+   * generator, so it is in the subgroup by construction. */
+  assertGroupElement(publicKey, group, 'publicKey');
 
   const c1 = modPow(group.g, ephemeralK, group.p);
   const yk = modPow(publicKey, ephemeralK, group.p);
@@ -76,6 +80,9 @@ export function decrypt(
   if (!sameGroup(ciphertext.group, group)) {
     throw new Error('Ciphertext group does not match decryption group.');
   }
+  /* Before the private key touches it. c1 arrives from whoever sent the
+   * ciphertext, and the next line raises it to x. */
+  assertGroupElement(ciphertext.c1, group, 'c1');
 
   const sharedSecret = modPow(ciphertext.c1, privateKey, group.p);
   const inverse = modInverse(sharedSecret, group.p);
@@ -138,6 +145,10 @@ export function rerandomize(
   if (!sameGroup(ciphertext.group, group)) {
     throw new Error('Ciphertext group does not match rerandomization group.');
   }
+
+  /* Re-randomizing is an encryption: y is raised to a fresh secret exponent
+   * here exactly as it is in encryptWithEphemeral. */
+  assertGroupElement(publicKey, group, 'publicKey');
 
   const kPrime = randomBigInt(group.q);
   const delta1 = modPow(group.g, kPrime, group.p);
