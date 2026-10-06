@@ -12,6 +12,24 @@ export function modPow(base: bigint, exp: bigint, m: bigint): bigint {
   if (m <= 0n) {
     throw new Error('Modulus must be positive.');
   }
+  /* A negative exponent used to return 1, silently. The square-and-multiply
+   * loop below is `while (e > 0n)`, so it never executes and `result` is handed
+   * back untouched -- base^negative answered as if it were base^0.
+   *
+   * That is a library hole rather than a signature one, and worth refusing HERE
+   * rather than at each caller: an inverse is a different operation with a
+   * different precondition (gcd(base, m) = 1), modInverse already exists for
+   * it, and a function that answers the wrong question confidently is the shape
+   * this repository keeps paying for. Audited across all 29 non-test call sites
+   * before adding this: not one of them legitimately passes a negative
+   * exponent, and exactly one -- signatures.ts verify(), with the message hash
+   * h -- could ever receive one from outside. */
+  if (exp < 0n) {
+    throw new Error(
+      'Exponent must be non-negative. A negative exponent is a modular inverse, '
+      + 'which is modInverse(), not modPow() with a sign.'
+    );
+  }
   if (m === 1n) {
     return 0n;
   }

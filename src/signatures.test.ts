@@ -333,3 +333,62 @@ describe('Bleichenbacher (1996) forgery, refused by the r < p check', () => {
     }
   });
 });
+
+describe('h: negative refused, wide reduced', () => {
+  it('a negative h is rejected by verify', () => {
+    const keys = generateSignKeyPair();
+    const { sig } = sign(10n, keys.x);
+    expect(() => verify(-1n, sig, keys.y)).toThrow(/h must be non-negative/);
+    expect(() => verify(-N, sig, keys.y)).toThrow(/h must be non-negative/);
+  });
+
+  it('a negative h is rejected by signWithK, which also takes h from outside', () => {
+    const keys = generateSignKeyPair();
+    expect(() => signWithK(-1n, keys.x, 3n)).toThrow(/h must be non-negative/);
+  });
+
+  it('h and h + n verify identically', () => {
+    for (let i = 0; i < 100; i += 1) {
+      const keys = generateSignKeyPair();
+      const h = randomBigInt(N);
+      const { sig } = sign(h, keys.x);
+      expect(verify(h, sig, keys.y)).toBe(true);
+      expect(verify(h + N, sig, keys.y)).toBe(true);
+      expect(verify(h + N * 1000n, sig, keys.y)).toBe(true);
+    }
+  });
+
+  it('h and h + n produce the same signature from signWithK', () => {
+    const keys = generateSignKeyPair();
+    const a = signWithK(42n, keys.x, 3n);
+    const b = signWithK(42n + N, keys.x, 3n);
+    expect(a.r).toBe(b.r);
+    expect(a.s).toBe(b.s);
+  });
+
+  /* The reduction is correctness-NEUTRAL: g has order n, so
+     g^h = g^(h mod n) (mod p) identically, which is exactly why reducing is
+     safe. It therefore cannot be caught by a behavioural test, and the
+     mutation table says so rather than pretending otherwise. What it buys is a
+     bounded amount of work on an h the attacker chose. */
+  it('the identity that makes reduction safe holds', () => {
+    for (const h of [0n, 1n, 42n, N - 1n, N, N + 1n, N * 7n + 13n]) {
+      expect(modPow(G, h, P)).toBe(modPow(G, h % N, P));
+    }
+  });
+});
+
+describe('h must be a bigint', () => {
+  /* TypeScript stops this at compile time; a JavaScript caller is not stopped,
+     and the fleet ships compiled JS. Without the typeof check this still
+     throws -- `h % n` raises "Cannot mix BigInt and other types" -- so the
+     assertion is on the MESSAGE, which is what distinguishes a named refusal
+     from an incidental TypeError. */
+  it('a number h is refused by name, not by a downstream TypeError', () => {
+    const keys = generateSignKeyPair();
+    const { sig } = sign(10n, keys.x);
+    const notABigint = 10 as unknown as bigint;
+    expect(() => verify(notABigint, sig, keys.y)).toThrow(/h must be a bigint \(got number\)/);
+    expect(() => signWithK(notABigint, keys.x, 3n)).toThrow(/h must be a bigint \(got number\)/);
+  });
+});

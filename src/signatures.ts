@@ -89,6 +89,33 @@ export function solveCongruence(a: bigint, b: bigint, n: bigint): bigint[] {
   return solutions;
 }
 
+/**
+ * A message hash arriving from outside, normalised for use as an exponent.
+ *
+ * Two different things, and only one of them is a rejection:
+ *
+ *   NEGATIVE is refused. There is no sensible reading of a negative hash, and
+ *   until this change it was the one way to reach modPow with a negative
+ *   exponent -- which returned 1 without looping, making `g^h` answer as if
+ *   h were 0. modPow now refuses that itself; this names the caller.
+ *
+ *   TOO LARGE is REDUCED, not refused. h is a hash value, so its magnitude
+ *   carries no meaning modulo this group: g has order n, so
+ *   g^h = g^(h mod n) (mod p) identically. Reducing is the textbook behaviour
+ *   and it bounds the work -- an h of 2^20000 would otherwise cost 20,000
+ *   squarings on a value an attacker chose. Rejecting a large h instead would
+ *   refuse perfectly good hashes for being wide.
+ */
+function normaliseHash(h: bigint, n: bigint, who: string): bigint {
+  if (typeof h !== 'bigint') {
+    throw new Error(`${who}: h must be a bigint (got ${typeof h}).`);
+  }
+  if (h < 0n) {
+    throw new Error(`${who}: h must be non-negative (got a negative hash value).`);
+  }
+  return h % n;
+}
+
 export function generateSignKeyPair(group: SignatureGroup = TOY_SIGN_GROUP): SignKeyPair {
   for (;;) {
     const x = randomBigInt(group.n); // in [1, n)
@@ -108,11 +135,12 @@ export function generateSignKeyPair(group: SignatureGroup = TOY_SIGN_GROUP): Sig
 /** Sign hash value h with a caller-supplied k (exposed to demonstrate reuse). */
 export function signWithK(h: bigint, x: bigint, k: bigint, group: SignatureGroup = TOY_SIGN_GROUP): Signature {
   const { p, g, n } = group;
+  const hr = normaliseHash(h, n, 'signWithK');
   if (gcd(k, n) !== 1n) {
     throw new Error('k must be coprime to p-1.');
   }
   const r = modPow(g, k, p);
-  const s = mod(mod(h - x * r, n) * modInverse(k, n), n);
+  const s = mod(mod(hr - x * r, n) * modInverse(k, n), n);
   return { r, s };
 }
 
@@ -181,7 +209,11 @@ export function verify(h: bigint, sig: Signature, y: bigint, group: SignatureGro
    * would reject three quarters of all legitimate public keys. */
   if (y <= 1n || y >= p - 1n) return false;
 
-  const left = modPow(g, h, p);
+  /* h last, because it needs the n established above, and before the only
+   * modPow that could receive it. Negative is refused; wide is reduced. */
+  const hr = normaliseHash(h, n, 'verify');
+
+  const left = modPow(g, hr, p);
   const right = (modPow(y, sig.r, p) * modPow(sig.r, sig.s, p)) % p;
   return left === right;
 }

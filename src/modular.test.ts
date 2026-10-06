@@ -72,3 +72,15 @@ describe('isProbablePrime', () => {
     }
   });
 });
+
+describe('modPow refuses a negative exponent', () => {
+  it('throws instead of silently answering 1', () => {
+    expect(() => modPow(7n, -1n, 2039n)).toThrow(/Exponent must be non-negative/);
+    expect(() => modPow(2n, -5n, 13n)).toThrow(/Exponent must be non-negative/);
+  });
+
+  it('still accepts a zero and a negative BASE, which are different things', () => {
+    expect(modPow(7n, 0n, 13n)).toBe(1n);
+    expect(modPow(-3n, 3n, 7n)).toBe(modPow(4n, 3n, 7n));
+  });
+});
