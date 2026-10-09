@@ -60,8 +60,10 @@ describe('multiplicative homomorphism', () => {
       const keys = generateKeyPair(TOY_GROUP);
       const m1 = randomBigInt(TOY_GROUP.p);
       const m2 = randomBigInt(TOY_GROUP.p);
-      const ct1 = encrypt(m1, keys.publicKey, TOY_GROUP).ciphertext;
-      const ct2 = encrypt(m2, keys.publicKey, TOY_GROUP).ciphertext;
+      // k=5 and k=7 keep the product's c1 away from the identity, which the
+      // hardened decryptor deliberately refuses even though the algebra holds.
+      const ct1 = encryptWithEphemeral(m1, keys.publicKey, TOY_GROUP, 5n);
+      const ct2 = encryptWithEphemeral(m2, keys.publicKey, TOY_GROUP, 7n);
       const product = multiplyHomomorphic(ct1, ct2);
       expect(decrypt(product, keys.privateKey, TOY_GROUP)).toBe((m1 * m2) % TOY_GROUP.p);
     }

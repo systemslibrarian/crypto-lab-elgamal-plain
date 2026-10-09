@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { createHash } from 'node:crypto';
 
 /**
  * Functional gate for the claims this lab makes on screen.
@@ -17,6 +18,31 @@ const G = 2n; // toy subgroup generator (order q)
 const Q = 1019n; // toy subgroup order
 const SIGN_G = 7n; // primitive root mod p, used by the signature exhibits
 const SIGN_N = 2038n; // p - 1
+
+function csField(text: string, name: string): bigint {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = text.match(new RegExp(`(?:^|[\\s,;(])${escaped}\\s*=\\s*(\\d+)`));
+  expect(match, `missing ${name} in ${text}`).not.toBeNull();
+  return BigInt(match![1]);
+}
+
+function csAlphaIndependent(u1: bigint, u2: bigint, e: bigint): bigint {
+  const input: number[] = [];
+  for (const n of [u1, u2, e]) {
+    let hex = n.toString(16);
+    if (hex.length % 2) hex = `0${hex}`;
+    const bytes = Buffer.from(hex, 'hex');
+    input.push(bytes.length >> 8, bytes.length & 255, ...bytes);
+  }
+  return BigInt(`0x${createHash('sha256').update(Buffer.from(input)).digest('hex')}`) % Q;
+}
+
+async function openCsChapter(page: Page, chapter: number): Promise<void> {
+  const button = page.locator(`[data-cs-chapter="${chapter}"]`);
+  await button.click();
+  await expect(button).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator(`#cs-stage-${chapter}`)).toBeVisible();
+}
 
 function modPow(base: bigint, exp: bigint, m: bigint): bigint {
   let result = 1n;
@@ -657,13 +683,205 @@ test('nonce reuse across two signatures hands over the whole private key', async
 
 test('the ElGamal vs RSA exhibit contrasts both hard problems', async ({ page }) => {
   await page.goto('.');
-  const rows = page.locator('table tbody tr');
+  const rows = page.locator('#elgamal-rsa-table tbody tr');
   await expect(rows).toHaveCount(6);
   await expect(rows.nth(0)).toContainText('Discrete Logarithm Problem');
   await expect(rows.nth(0)).toContainText('Integer Factorization');
   await expect(rows.nth(1)).toContainText('Pair (c1, c2)');
   await expect(rows.nth(2)).toContainText('Yes (fresh k each encryption)');
   await expect(page.locator('#group-select option')).toHaveCount(2);
+});
+
+test('Cramer–Shoup round trip and histogram agree with independently recomputed toy values', async ({ page }) => {
+  await page.goto('.');
+  await page.locator('#cs-round-btn').click();
+  await expect(page.locator('#cs-round-output')).toContainText('check equal');
+  const round = await textOf(page, 'cs-round-output');
+  const u1 = csField(lineOf(round, 'u1 ='), 'u1');
+  const u2 = csField(lineOf(round, 'u2 ='), 'u2');
+  const e = csField(lineOf(round, 'e ='), 'e');
+  const v = csField(lineOf(round, 'e ='), 'v');
+  const alpha = numAfter(round, 'α =');
+  const secrets = lineOf(round, 'toy secret');
+  const x1 = csField(secrets, 'x1'), x2 = csField(secrets, 'x2');
+  const y1 = csField(secrets, 'y1'), y2 = csField(secrets, 'y2');
+  expect(alpha).toBe(csAlphaIndependent(u1, u2, e));
+  expect(modPow(u1, x1 + alpha * y1, P) * modPow(u2, x2 + alpha * y2, P) % P).toBe(v);
+  expect(round).toContain('check equal; recovered m = 42');
+
+  await openCsChapter(page, 2);
+  await page.locator('#cs-session-btn').click();
+  await expect(page.locator('#cs-proof-output')).toContainText('Public g1=');
+  await page.locator('#cs-valid-btn').click();
+  await expect(page.locator('#cs-proof-output')).toContainText('Histogram: 1 occupied check values');
+  let proof = await textOf(page, 'cs-proof-output');
+  const publicLine = lineOf(proof, 'Public g1=');
+  const c = csField(publicLine, 'c'), d = csField(publicLine, 'd');
+  const w = csField(lineOf(proof, 'Proof viewpoint'), 'w');
+  expect(modPow(G, w, P)).toBe(csField(publicLine, 'g2'));
+  const C = Array.from({ length: Number(Q) }, (_, i) => i).find((i) => modPow(G, BigInt(i), P) === c)!;
+  const D = Array.from({ length: Number(Q) }, (_, i) => i).find((i) => modPow(G, BigInt(i), P) === d)!;
+  const validQuery = lineOf(proof, 'Query r1=');
+  const aValid = csField(validQuery, 'α');
+  expect(aValid).toBe(csAlphaIndependent(csField(validQuery, 'u1'), csField(validQuery, 'u2'), csField(validQuery, 'e')));
+  expect(modPow(c, 31n, P) * modPow(d, 31n * aValid, P) % P).toBe(csField(validQuery, 'v'));
+  expect(proof).toContain(`counts=${Q * Q}; total=${Q * Q}`);
+
+  await page.locator('#cs-invalid-btn').click();
+  await expect(page.locator('#cs-proof-output')).toContainText('Histogram: 1019 occupied check values');
+  proof = await textOf(page, 'cs-proof-output');
+  const query = lineOf(proof, 'Query r1=');
+  const a = csField(query, 'α');
+  expect(a).toBe(csAlphaIndependent(csField(query, 'u1'), csField(query, 'u2'), csField(query, 'e')));
+  const bins = Array<number>(Number(Q)).fill(0);
+  for (let y2 = 0; y2 < Number(Q); y2++) {
+    for (let x2 = 0; x2 < Number(Q); x2++) {
+      const prediction = Number(mod(31n * (BigInt(C) + a * BigInt(D)) + w * (32n - 31n) * (BigInt(x2) + a * BigInt(y2)), Q));
+      bins[prediction]++;
+    }
+  }
+  expect(bins.filter(Boolean)).toHaveLength(Number(Q));
+  expect(new Set(bins)).toEqual(new Set([Number(Q)]));
+  expect(proof).toContain('counts=1019 each; total=1038361');
+
+  await openCsChapter(page, 5);
+  await page.locator('#cs-product-btn').click();
+  await expect(page.locator('#cs-product-output')).toContainText('Decryptor: REJECTED');
+  const productOut = await textOf(page, 'cs-product-output');
+  const first = lineOf(productOut, 'E(3)');
+  const second = lineOf(productOut, 'E(7)');
+  const product = lineOf(productOut, 'Componentwise product');
+  for (const name of ['u1', 'u2', 'e', 'v']) {
+    expect(csField(product, name)).toBe(csField(first, name) * csField(second, name) % P);
+  }
+  const secretLine = lineOf(proof, 'Toy real key');
+  const productAlpha = csAlphaIndependent(csField(product, 'u1'), csField(product, 'u2'), csField(product, 'e'));
+  const productCheck = modPow(csField(product, 'u1'), csField(secretLine, 'x1') + productAlpha * csField(secretLine, 'y1'), P)
+    * modPow(csField(product, 'u2'), csField(secretLine, 'x2') + productAlpha * csField(secretLine, 'y2'), P) % P;
+  expect(productCheck).not.toBe(csField(product, 'v'));
+  await expect(page.locator('body')).not.toContainText('reach for Cramer-Shoup');
+});
+
+test('fifty CS oracle queries retain the independently recounted key set', async ({ page }) => {
+  test.setTimeout(60000);
+  await page.goto('.');
+  await openCsChapter(page, 2);
+  await page.locator('#cs-session-btn').click();
+  await expect(page.locator('#cs-proof-output')).toContainText('Public g1=');
+  const session = await textOf(page, 'cs-proof-output');
+  const publicLine = lineOf(session, 'Public g1=');
+  const g2 = csField(publicLine, 'g2'), h = csField(publicLine, 'h');
+  const C = csField(lineOf(session, 'Proof viewpoint'), 'log_g1(c)');
+  const D = csField(lineOf(session, 'Proof viewpoint'), 'log_g1(d)');
+  const w = csField(lineOf(session, 'Proof viewpoint'), 'w');
+  const z = csField(lineOf(session, 'Toy real key'), 'z');
+  await openCsChapter(page, 3);
+  await page.locator('#cs-query-count').selectOption('50');
+  await page.locator('#cs-queries-btn').click();
+  await expect(page.locator('#cs-queries-btn')).toBeEnabled();
+  const ledger = await textOf(page, 'cs-ledger-output');
+  const lines = ledger.split('\n').filter((line) => /^\d+ \|/.test(line));
+  expect(lines).toHaveLength(50);
+  const q = Number(Q);
+  const alive = new Uint8Array(q * q).fill(1);
+  let remaining = q * q;
+  let rejections = 0;
+  for (const line of lines) {
+    const match = line.match(/^(\d+) \| (\d+),(\d+) \| (\d+) \| (rejected|ACCEPTED) \| (\d+)\/(\d+) \| (\d+) \|/);
+    expect(match, line).not.toBeNull();
+    const [, , r1Raw, r2Raw, vRaw, verdict, passingRaw, beforeRaw, remainingRaw] = match!;
+    const r1 = BigInt(r1Raw), r2 = BigInt(r2Raw), v = BigInt(vRaw);
+    const u1 = modPow(G, r1, P), u2 = modPow(g2, r2, P);
+    const encoded42 = modPow(42n, Q, P) === 1n ? 42n : P - 42n;
+    const e = encoded42 * modPow(h, r1, P) % P;
+    const plain = e * modPow(modPow(u1, z, P), Q - 1n, P) % P;
+    expect(BigInt(line.split('|').at(-1)!.trim())).toBe(plain);
+    const alpha = csAlphaIndependent(u1, u2, e);
+    const target = Array.from({ length: q }, (_, i) => i).find((i) => modPow(G, BigInt(i), P) === v)!;
+    const before = remaining;
+    const base = mod(r1 * (C + alpha * D), Q);
+    const delta = mod(w * (r2 - r1), Q);
+    const inverse = modPow(delta, Q - 2n, Q); // Fermat inverse; independent of the app's Euclid inverse
+    const intercept = mod((BigInt(target) - base) * inverse, Q);
+    const accepted = verdict === 'ACCEPTED';
+    const acceptedKeys = accepted ? new Uint8Array(q * q) : null;
+    let passing = 0;
+    for (let y2 = 0; y2 < q; y2++) {
+      const x2 = Number(mod(intercept - alpha * BigInt(y2), Q));
+      const index = y2 * q + x2;
+      if (!alive[index]) continue;
+      passing++;
+      if (acceptedKeys) acceptedKeys[index] = 1;
+      else { alive[index] = 0; remaining--; }
+    }
+    if (acceptedKeys) { alive.set(acceptedKeys); remaining = passing; }
+    expect(Number(beforeRaw)).toBe(before);
+    expect(Number(passingRaw)).toBe(passing);
+    expect(Number(remainingRaw)).toBe(remaining);
+    if (verdict === 'rejected') {
+      rejections++;
+      if (!lines.slice(0, Number(match![1]) - 1).some((earlier) => earlier.includes('ACCEPTED'))) {
+        expect(passing / before).toBeLessThanOrEqual(1 / (q - rejections + 1));
+      }
+    }
+  }
+  expect(remaining).toBeGreaterThan(0);
+  expect(await page.locator('#exhibit-cs').textContent()).toContain('Each rejection rules out about 1/q of the keys');
+  await expect(page.locator('#cs-ledger-summary')).toContainText(
+    lines.some((line) => line.includes('ACCEPTED'))
+      ? `${remaining.toLocaleString()} compatible keys remain`
+      : `${remaining.toLocaleString()} of 1,038,361 compatible keys remain`
+  );
+  await expect(page.locator('#cs-survival-progress')).toHaveAttribute('value', String(remaining));
+});
+
+test('toy α collision is an alarm and is not presented as a real-group attack', async ({ page }) => {
+  test.setTimeout(60000);
+  await page.goto('.');
+  await openCsChapter(page, 2);
+  await page.locator('#cs-session-btn').click();
+  await expect(page.locator('#cs-proof-output')).toContainText('Public g1=');
+  await openCsChapter(page, 4);
+  let output = '';
+  for (let message = 100; message < 116; message++) {
+    await page.locator('#cs-maul-message').fill(String(message));
+    await page.locator('#cs-collision-btn').click();
+    await expect(page.locator('#cs-collision-btn')).toBeEnabled();
+    output = await textOf(page, 'cs-collision-output');
+    if (output.includes('FORGED — ACCEPTED')) break;
+  }
+  expect(output).toContain('⚠ FORGED — ACCEPTED');
+  expect(csField(lineOf(output, 'Challenge'), 'α*')).toBe(csField(lineOf(output, 'Forged'), 'α'));
+  await expect(page.locator('#cs-collision-output')).toHaveAttribute('data-state', 'alarm');
+  await expect(page.locator('#cs-collision-output .cs-alarm')).toHaveClass(/bad/);
+  expect(output).toContain('Toy-size α only');
+});
+
+test('CS chapters guide the learner without discarding a toy session', async ({ page }) => {
+  await page.goto('.');
+  await expect(page.locator('#cs-stage-1')).toBeVisible();
+  await expect(page.locator('#cs-stage-2')).toBeHidden();
+  await page.locator('#cs-message').fill('0');
+  await page.locator('#cs-round-btn').click();
+  await expect(page.locator('#cs-round-output')).toHaveAttribute('data-state', 'error');
+  await expect(page.locator('#cs-round-takeaway')).toContainText('Round trip could not run');
+  await expect(page.locator('#cs-round-btn')).toBeEnabled();
+  await page.locator('#cs-message').fill('42');
+  await page.locator('#cs-group').selectOption('group14');
+  await page.locator('#cs-round-btn').click();
+  await expect(page.locator('#cs-round-output')).toContainText('check equal');
+  await expect(page.locator('#cs-round-takeaway')).toContainText('decryptor recovered m = 42');
+  await page.locator('[data-cs-next="2"]').click();
+  await expect(page.locator('#cs-step-status')).toContainText('Chapter 2 of 5');
+  await expect(page.locator('#cs-valid-btn')).toBeDisabled();
+  await page.locator('#cs-session-btn').click();
+  await expect(page.locator('#cs-proof-output')).toContainText('Public g1=');
+  await page.locator('#cs-valid-btn').click();
+  await expect(page.locator('#cs-proof-takeaway')).toContainText('all 1038361 compatible keys');
+  await openCsChapter(page, 3);
+  await expect(page.locator('#cs-queries-btn')).toBeEnabled();
+  await openCsChapter(page, 2);
+  await expect(page.locator('#cs-proof-output')).toContainText('Histogram: 1 occupied');
 });
 
 test.describe('copy buttons', () => {

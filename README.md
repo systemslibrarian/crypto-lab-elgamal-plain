@@ -15,6 +15,7 @@ This project is an educational, no-backend lab for plain ElGamal encryption, imp
 - Implements the **ElGamal signature scheme** (sign / verify) over a primitive-root group
 - Includes an interactive **Security Lab** that lets you break the scheme yourself
 - Includes a side-by-side ElGamal vs RSA exhibit
+- Explores Cramer–Shoup's validity check with a toy consistent-key histogram and rejection ledger
 
 The app includes two parameter sets:
 
@@ -54,7 +55,7 @@ Taher ElGamal's 1985 paper, _A Public Key Cryptosystem and a Signature Scheme Ba
 - DSA standardized ElGamal's signature lineage
 - Threshold ElGamal is used in distributed decryption and voting pipelines
 - Exponential ElGamal appears in privacy-preserving vote tally systems
-- Cramer-Shoup can be seen as a hardened ElGamal-family construction
+- Cramer–Shoup: ElGamal-family, IND-CCA2 in the standard model, and not homomorphic
 - RFC 3526 Group 14 is widely deployed in historical DH deployments (IPsec, SSH, TLS 1.2 finite-field DH)
 
 ## How to Run Locally
@@ -91,6 +92,7 @@ educational claims are permanent and regression-checked, not ad hoc:
 - `elgamal.test.ts` — encrypt/decrypt round-trips, non-determinism, homomorphism, re-randomization, text codec
 - `attacks.test.ts` — baby-step/giant-step key recovery, and the feasibility guard refusing the 2048-bit group
 - `authenticated.test.ts` — authenticated round-trip plus rejection of malleability and forged tags
+- `cramerShoup.test.ts` — CS round-trips, subgroup rejection, exact toy-key counts, query leakage, and the toy collision boundary
 - `signatures.test.ts` — sign/verify, forgery rejection, the congruence solver, and full key recovery from a reused nonce
 
 A Playwright suite then drives the built page in Chromium, so the exhibits are checked as rendered,
@@ -123,7 +125,14 @@ The app does not just describe the failure modes — it lets you trigger them an
 - **Authenticated ElGamal — the fix (Exhibit 7):** a DHIES/ECIES-style construction
   (`src/authenticated.ts`) derives an HMAC-SHA-256 key from the Diffie-Hellman shared secret and tags
   the ciphertext. The exact Exhibit 6 attack is now detected and decryption is refused — at the cost of
-  the homomorphism, the tradeoff that pushes voting systems toward Cramer-Shoup or zero-knowledge proofs.
+  the homomorphism. Systems that need rerandomization or homomorphic tallying (mix-nets, e-voting) keep
+  plain ElGamal and add zero-knowledge proofs of correct encryption and shuffling instead. Cramer–Shoup
+  gives up the same properties.
+- **Cramer–Shoup (after Exhibit 7):** a five-chapter walkthrough compares a valid ciphertext's publicly
+  determined check value with the exactly uniform values of a malformed query across all toy keys
+  consistent with the public key. Its rejection ledger shows the remaining keys at a glance, with every
+  calculation available for inspection. The toy collision search exposes the limit of a 1019-value hash
+  range; Group 14 is used for the round trip only.
 - **Signature nonce reuse — total key recovery (Exhibit 9):** signing two messages with the same `k`
   (`src/signatures.ts`) makes the signatures share `r`; solving the resulting linear congruences recovers
   the signer's entire private key. This is the real Sony PS3 ECDSA break, and a far worse outcome than the

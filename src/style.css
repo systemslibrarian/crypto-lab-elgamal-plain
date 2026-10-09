@@ -438,6 +438,42 @@ a:focus-visible,
   color: var(--t-ok);
 }
 
+.card.cs-card { counter-increment: none; }
+.cs-badge { width: 2rem; }
+.cs-badge::before { content: 'CS'; font-size: 0.7rem; }
+.cs-card h3 { margin: 0.35rem 0 0; font-family: var(--font-display); font-size: 1.05rem; }
+.cs-card .cs-stage[hidden] { display: none; }
+.cs-stage { display: grid; gap: 0.85rem; min-width: 0; scroll-margin-top: 5.5rem; }
+.cs-chapters { display: flex; gap: 0.5rem; overflow-x: auto; padding: 0.15rem 0.1rem 0.45rem; scroll-snap-type: x proximity; }
+.cs-chapters button { flex: 0 0 auto; scroll-snap-align: start; min-height: 42px; font-size: 0.85rem; padding: 0.45rem 0.7rem; white-space: nowrap; }
+.cs-chapters button[aria-pressed='true'] { border-color: var(--t-ok); background: color-mix(in srgb, var(--ok) 20%, var(--surface-2)); box-shadow: inset 0 -3px var(--t-ok); }
+.cs-step-status { margin: -0.55rem 0 0; color: var(--text-soft); font-size: 0.85rem; }
+.cs-equation { border: 1px solid var(--line); border-radius: 10px; padding: 0.55rem 0.7rem; background: color-mix(in srgb, var(--surface-2) 55%, transparent); }
+.cs-equation summary, .cs-audit summary { cursor: pointer; font-weight: 600; }
+.cs-equation p { margin: 0.6rem 0 0; }
+.cs-equation code { overflow-wrap: anywhere; }
+.cs-takeaway { border: 1px solid color-mix(in srgb, var(--ok) 52%, var(--line)); border-left: 4px solid var(--t-ok); border-radius: 10px; background: color-mix(in srgb, var(--ok) 8%, var(--surface)); padding: 0.7rem 0.85rem; font-weight: 600; }
+.cs-takeaway[data-state='alarm'] { border-color: var(--t-bad); border-left-color: var(--t-bad); background: color-mix(in srgb, var(--private) 13%, var(--surface)); }
+.cs-card .output { padding-right: 5.2rem; }
+.cs-audit { border: 1px solid var(--line); border-radius: 10px; padding: 0.6rem 0.7rem; }
+.cs-audit .output-wrap { margin-top: 0.7rem; }
+.cs-keyline { border: 1px dashed var(--line-strong); border-radius: 10px; padding: 0.55rem 0.7rem; font: 0.88rem var(--font-mono); overflow-wrap: anywhere; }
+.cs-survival-label { font-size: 0.88rem; color: var(--text-soft); }
+.cs-survival-label[hidden] { display: none; }
+.cs-survival-label progress { display: block; width: 100%; height: 1rem; margin-top: 0.4rem; accent-color: var(--t-ok); }
+.cs-table-hint { display: none; }
+@media (max-width: 640px) { .cs-table-hint { display: block; } }
+.cs-card button:disabled { opacity: 0.6; cursor: wait; transform: none; }
+.cs-histogram { min-height: 135px; border: 1px solid var(--line); border-radius: 12px; padding: 0.5rem; background: var(--bg-soft); overflow-x: auto; }
+.cs-histogram svg { display: block; width: 100%; height: 120px; }
+.cs-histogram.spread svg { width: 1019px; max-width: none; }
+.cs-histogram .note { margin-top: 0.3rem; }
+.cs-histogram:focus-visible { outline: 3px solid var(--t-pub); outline-offset: 2px; }
+.cs-histogram rect { fill: var(--t-ok); }
+.cs-histogram text { fill: var(--text); font: 10px var(--font-mono); }
+.output[data-state='alarm'] { border: 2px solid var(--t-bad); background: color-mix(in srgb, var(--private) 15%, var(--surface)); }
+.cs-alarm { display: inline-block; padding: 0.1rem 0.4rem; border: 1px solid var(--t-bad); border-radius: 4px; }
+
 /* --- Output blocks & copy buttons ----------------------------------------- */
 
 .output-wrap {
