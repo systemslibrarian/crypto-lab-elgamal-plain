@@ -1,0 +1,72 @@
+[
+  {
+    "name": "missing full-group mask correction",
+    "sourceDiff": "diff --git a/src/qrGame.ts b/src/qrGame.ts\nindex 53a0ec1..e58234a 100644\n--- a/src/qrGame.ts\n+++ b/src/qrGame.ts\n@@ -6,7 +6,7 @@ export type Setting = 'A' | 'B' | 'C';\n export interface PublicChallenge { p: bigint; g: bigint; y: bigint; c1: bigint; c2: bigint; m0: bigint; m1: bigint }\n /** Public transcript only: no key, nonce or hidden-bit input. Equal symbols tie to 0. */\n export function legendreDistinguisher({p, y, c1, c2, m0, m1}: PublicChallenge): 0 | 1 {\n-  const mask = legendre(y, p) === -1 && legendre(c1, p) === -1 ? -1 : 1;\n+  const mask = 1; void y; void c1;\n   const observed = legendre(c2, p) * mask;\n   return legendre(m0, p) === legendre(m1, p) || observed === legendre(m0, p) ? 0 : 1;\n }\n",
+    "baseline": "12888219519534cde6b9b97bb20e2d234fa645831d40e08f5d946bf64f8a3de2",
+    "mutant": "5618a3983be5651e34edaaaba9d3ca9e782b0cca91ae26fe82fe0c3c7baa7c0c",
+    "namedTest": "full-group public correction",
+    "assertionFailure": true,
+    "retries": 0,
+    "restoredGreen": true
+  },
+  {
+    "name": "missing subgroup decode",
+    "sourceDiff": "diff --git a/src/residuosity.ts b/src/residuosity.ts\nindex ba0c075..e7fb28d 100644\n--- a/src/residuosity.ts\n+++ b/src/residuosity.ts\n@@ -12,5 +12,5 @@ export function encodeToSubgroup(m: bigint, p: bigint): bigint {\n }\n export function decodeFromSubgroup(x: bigint, p: bigint): bigint {\n   if (x < 1n || x >= p || legendre(x, p) !== 1) throw new Error('Expected a nonzero quadratic residue.');\n-  return x <= (p - 1n) / 2n ? x : p - x;\n+  return x;\n }\n",
+    "baseline": "12888219519534cde6b9b97bb20e2d234fa645831d40e08f5d946bf64f8a3de2",
+    "mutant": "272e6543b8d9f772bec48a2b446ddb4d373922b3562f25982ca9dcae1b334f76",
+    "namedTest": "subgroup encoding round-trips",
+    "assertionFailure": true,
+    "retries": 0,
+    "restoredGreen": true
+  },
+  {
+    "name": "B quietly encodes the message",
+    "sourceDiff": "diff --git a/src/qrGame.ts b/src/qrGame.ts\nindex 53a0ec1..0e43da6 100644\n--- a/src/qrGame.ts\n+++ b/src/qrGame.ts\n@@ -21,7 +21,7 @@ export async function runIndCpaGame(setting: Setting, m0: bigint, m1: bigint, tr\n   if (!['A','B','C'].includes(setting)) throw new Error('Choose setting A, B or C.');\n   if (!Number.isInteger(trials) || trials < 1 || trials > max) throw new Error(`Trial count must be in [1, ${max}].`);\n   for (const m of [m0,m1]) if (m < 1n || m >= group.p) throw new Error('Message must be in [1, p-1].');\n-  const messages = setting === 'C' ? [encodeToSubgroup(m0, group.p), encodeToSubgroup(m1, group.p)] : [m0,m1];\n+  const messages = setting !== 'A' ? [encodeToSubgroup(m0, group.p), encodeToSubgroup(m1, group.p)] : [m0,m1];\n   const normal = setting === 'A' ? null : generateKeyPair(group);\n   const full = setting === 'A' ? fullGroupKeygen(group) : null;\n   const y = full?.y ?? normal!.publicKey, g = full?.g ?? group.g;\n",
+    "baseline": "12888219519534cde6b9b97bb20e2d234fa645831d40e08f5d946bf64f8a3de2",
+    "mutant": "9d9c08f6f46e513efe6b6d7544d36ff442216e1e4da17b16cb41c10e5f2ce8e3",
+    "namedTest": "QR setting B:",
+    "assertionFailure": true,
+    "retries": 0,
+    "restoredGreen": true
+  },
+  {
+    "name": "tally counts guesses",
+    "sourceDiff": "diff --git a/src/qrGame.ts b/src/qrGame.ts\nindex 53a0ec1..2587930 100644\n--- a/src/qrGame.ts\n+++ b/src/qrGame.ts\n@@ -48,5 +48,5 @@ export async function runIndCpaGame(setting: Setting, m0: bigint, m1: bigint, tr\n     seen.add(tag);\n     if (i % 10 === 9 || !group.isToy) await new Promise<void>(resolve => setTimeout(resolve, 0));\n   }\n-  return {setting,group,m0,m1,encoded:messages,rows,wins:rows.filter(row=>row.correct).length,elapsedMs:performance.now()-start};\n+  return {setting,group,m0,m1,encoded:messages,rows,wins:rows.filter(row=>row.guess===1).length,elapsedMs:performance.now()-start};\n }\n",
+    "baseline": "12888219519534cde6b9b97bb20e2d234fa645831d40e08f5d946bf64f8a3de2",
+    "mutant": "6d50d4eb5ad0ed76583ca83146e2386e136787c96c305b3e76812e0b913915d8",
+    "namedTest": "QR setting C:",
+    "assertionFailure": true,
+    "retries": 0,
+    "restoredGreen": true
+  },
+  {
+    "name": "calm leak verdict",
+    "sourceDiff": "diff --git a/src/qrPanel.ts b/src/qrPanel.ts\nindex f27d68e..2968166 100644\n--- a/src/qrPanel.ts\n+++ b/src/qrPanel.ts\n@@ -84,7 +84,7 @@ export function mountQRPanel() {\n       if(version!==epoch)return;\n       const {rows,wins}=result, n=rows.length, distinct=legendre(result.encoded[0],result.group.p)!==legendre(result.encoded[1],result.group.p);\n       const alarm=result.setting!=='C' && distinct && wins===n;\n-      const verdict=document.createElement('p');verdict.className=alarm?'qr-verdict qr-alarm':'qr-verdict';verdict.dataset.verdict=alarm?'leaked':'limited';\n+      const verdict=document.createElement('p');verdict.className='qr-verdict';verdict.dataset.verdict=alarm?'leaked':'limited';\n       verdict.textContent=alarm?'⚠ VALID AND RANDOMISED — AND ONE BIT LEAKED':'ℹ This distinguisher sees equal message characters; its tally is not a security verdict.';\n       const tally=document.createElement('p');tally.id='qr-tally';tally.textContent=`${wins} / ${n} correct guesses (${(100*wins/n).toFixed(1)}%).`;\n       const checks=document.createElement('p');checks.id='qr-checks';checks.className=rows.every(r=>r.roundTrip && r.subgroupChecks!==false)?'qr-checks':'qr-alarm';\n",
+    "baseline": "12888219519534cde6b9b97bb20e2d234fa645831d40e08f5d946bf64f8a3de2",
+    "mutant": "4db4b5c81e8e85f040d18fa5ee58d6cec241c66a60533ab910aa0f7b108b8bbd",
+    "namedTest": "QR setting B:",
+    "assertionFailure": true,
+    "retries": 0,
+    "restoredGreen": true
+  },
+  {
+    "name": "wrong limited marker",
+    "sourceDiff": "diff --git a/src/qrPanel.ts b/src/qrPanel.ts\nindex f27d68e..f258a9b 100644\n--- a/src/qrPanel.ts\n+++ b/src/qrPanel.ts\n@@ -84,7 +84,7 @@ export function mountQRPanel() {\n       if(version!==epoch)return;\n       const {rows,wins}=result, n=rows.length, distinct=legendre(result.encoded[0],result.group.p)!==legendre(result.encoded[1],result.group.p);\n       const alarm=result.setting!=='C' && distinct && wins===n;\n-      const verdict=document.createElement('p');verdict.className=alarm?'qr-verdict qr-alarm':'qr-verdict';verdict.dataset.verdict=alarm?'leaked':'limited';\n+      const verdict=document.createElement('p');verdict.className=alarm?'qr-verdict qr-alarm':'qr-verdict';verdict.dataset.verdict=alarm?'leaked':'secure';\n       verdict.textContent=alarm?'⚠ VALID AND RANDOMISED — AND ONE BIT LEAKED':'ℹ This distinguisher sees equal message characters; its tally is not a security verdict.';\n       const tally=document.createElement('p');tally.id='qr-tally';tally.textContent=`${wins} / ${n} correct guesses (${(100*wins/n).toFixed(1)}%).`;\n       const checks=document.createElement('p');checks.id='qr-checks';checks.className=rows.every(r=>r.roundTrip && r.subgroupChecks!==false)?'qr-checks':'qr-alarm';\n",
+    "baseline": "12888219519534cde6b9b97bb20e2d234fa645831d40e08f5d946bf64f8a3de2",
+    "mutant": "7ab88b06d8a7285ca7cccc4bc8c23d941d50b359d3f227043e794fdf58fdf38c",
+    "namedTest": "QR setting C:",
+    "assertionFailure": true,
+    "retries": 0,
+    "restoredGreen": true
+  },
+  {
+    "name": "missing negative claim",
+    "sourceDiff": "diff --git a/src/qrPanel.ts b/src/qrPanel.ts\nindex f27d68e..1cbbd8e 100644\n--- a/src/qrPanel.ts\n+++ b/src/qrPanel.ts\n@@ -92,7 +92,7 @@ export function mountQRPanel() {\n       const params=document.createElement('p');params.id='qr-params';params.className='qr-numbers';params.textContent=`p=${result.group.p}; g=${rows[0].g}; y=${rows[0].y}; raw m0=${result.m0}; raw m1=${result.m1}; challenge m0=${result.encoded[0]}; challenge m1=${result.encoded[1]}.`;\n       el('result').append(verdict,tally,checks,params);\n       if(result.setting==='B') {\n-        const negative=document.createElement('p');negative.id='qr-negative';negative.textContent='Fresh randomness and a prime-order subgroup do not by themselves hide the message: in this lab’s Exhibit 1 encryption, the quadratic character of m passes straight through to c₂.';el('result').append(negative);\n+        const negative=document.createElement('p');negative.id='qr-negative';negative.textContent='';el('result').append(negative);\n       }\n       if(result.setting==='C') {\n         const limit=document.createElement('p');limit.id='qr-limit';limit.textContent='This distinguisher learns nothing from the Legendre bit: both encoded messages and every c₂ are quadratic residues. Security of properly instantiated ElGamal relies on the DDH assumption and its reduction, not on this measured win rate. Toy parameters remain insecure.';el('result').append(limit);\n",
+    "baseline": "12888219519534cde6b9b97bb20e2d234fa645831d40e08f5d946bf64f8a3de2",
+    "mutant": "19e15949672f0e6ec44721fdbbb8ef33810e8876f572cc48720c71cefab24ae7",
+    "namedTest": "QR negative claim:",
+    "assertionFailure": true,
+    "retries": 0,
+    "restoredGreen": true
+  }
+]

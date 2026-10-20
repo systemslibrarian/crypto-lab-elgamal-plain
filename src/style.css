@@ -111,6 +111,9 @@ body {
   display: grid;
   gap: 1rem;
   counter-reset: exhibit;
+  /* Keep the single page track within a 320px viewport; intrinsic content
+     previously forced it eight pixels wider even before the QR extension. */
+  grid-template-columns: minmax(0, 1fr);
 }
 
 /* Exhibit badges auto-number by DOM order so inserting a section never
@@ -773,3 +776,17 @@ tbody th[scope='row'] {
     border-width: 2px;
   }
 }
+
+.card.qr-card { counter-increment:none; }
+.qr-badge::before { content:'QR'; font-size:.7rem; }
+.qr-settings { display:flex; flex-wrap:wrap; gap:.6rem; }
+.qr-settings button { white-space:normal; }
+.qr-settings button[aria-pressed="true"] { border-color:var(--t-ok); box-shadow:inset 0 -3px var(--t-ok); }
+.qr-numbers { overflow-wrap:anywhere; }
+.qr-verdict { border:2px solid var(--line-strong); padding:.8rem; border-radius:10px; font-weight:700; }
+.qr-alarm { border-color:var(--t-bad); color:var(--t-bad); background:var(--surface); }
+.qr-checks { color:var(--t-ok); }
+.qr-trial { border:1px solid var(--line-strong); border-radius:8px; padding:.6rem; margin-block:.6rem; min-width:0; }
+.qr-trial summary { cursor:pointer; }
+.qr-card .output { white-space:pre-wrap; overflow-wrap:anywhere; padding-right:.7rem; }
+@media(max-width:640px){ .qr-card .grid { grid-template-columns:1fr; } .qr-settings { flex-direction:column; } }

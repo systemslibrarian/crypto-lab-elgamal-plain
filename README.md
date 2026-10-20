@@ -111,6 +111,8 @@ deploy on a green run (`.github/workflows/deploy.yml`).
 
 ## Security Lab
 
+- **The bit ElGamal leaks (after Exhibit 6):** an unnumbered QR card contrasts deliberately broken full-group ElGamal, the existing subgroup encryption of raw integers, and an explicit quadratic-residue message encoding. Its public-only adversary reveals a message bit in the first two settings; the third defeats this particular adversary. Real round-trips and public-key/c₁ checks do not by themselves establish message secrecy. The original encryption and validation modules are unchanged.
+
 The app does not just describe the failure modes — it lets you trigger them and watch the math:
 
 - **Cracking the key (Exhibit 4):** recovers a toy private key from its public key with a

@@ -87,3 +87,14 @@ test('no WCAG A/AA violations in dark theme', async ({ page }) => {
   await runSuite(page);
 });
 
+
+test('QR actual outcomes and errors remain accessible at 320px',async({page})=>{
+  await page.setViewportSize({width:320,height:900});await page.goto('.');await neutralizeMotion(page);
+  await page.locator('#qr-trials').fill('4');
+  for(const setting of ['A','B','C']){
+    await page.locator(`[data-qr-setting="${setting}"]`).click();await page.locator('#qr-run').click();
+    await expect(page.locator('#qr-status')).toContainText('Completed 4 trials');await scan(page);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  }
+  await page.locator('#qr-m0').fill('0');await page.locator('#qr-run').click();await expect(page.locator('#qr-status')).toContainText('[1, p-1]');await scan(page);
+});

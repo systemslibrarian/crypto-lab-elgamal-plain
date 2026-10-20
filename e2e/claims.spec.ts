@@ -251,7 +251,7 @@ test('toy keygen, encryption and decryption agree with the group arithmetic', as
   expect(dec).toContain('Recovered original: Yes');
 });
 
-test('text mode encodes UTF-8 to a group element and decodes it back', async ({ page }) => {
+test('text mode encodes UTF-8 to an integer in Z*p and decodes it back', async ({ page }) => {
   await page.goto('.');
   await page.locator('#keygen-btn').click();
   await page.locator('#message-mode').selectOption('text');
@@ -897,4 +897,78 @@ test.describe('copy buttons', () => {
     const clip = await page.evaluate(() => navigator.clipboard.readText());
     expect(clip).toBe(rendered);
   });
+});
+
+// QR extension: public transcript arithmetic is recomputed here, never imported.
+function qrNumber(text: string, name: string): bigint {
+  const escaped=name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  const found=text.match(new RegExp(`${escaped}=(-?\\d+)`));
+  expect(found, `missing ${name}`).not.toBeNull(); return BigInt(found![1]);
+}
+function qrLegendre(x: bigint,p:bigint) {const n=modPow(x,(p-1n)/2n,p);return n===p-1n?-1n:n;}
+async function qrSeededFixture(page: Page) {
+  await page.addInitScript(()=>{
+    // Fixture seed controls challenge bits only. Two-byte exponent sampling and
+    // all other platform randomness remain real. No production branch is used.
+    const original=crypto.getRandomValues.bind(crypto);let next=0;
+    crypto.getRandomValues=((array: Uint8Array)=>{if(array instanceof Uint8Array&&array.length===1){array[0]=next++%2;return array;}return original(array);}) as typeof crypto.getRandomValues;
+  });
+  await page.goto('.'); await page.locator('#qr-trials').fill('6');
+}
+for (const setting of ['A','B','C']) {
+  test(`QR setting ${setting}: public Legendre values, guesses, checks and tally agree`,async({page})=>{
+    await qrSeededFixture(page); await page.locator(`[data-qr-setting="${setting}"]`).click();await page.locator('#qr-run').click();
+    await expect(page.locator('.qr-trial')).toHaveCount(6);await expect(page.locator('#qr-status')).toContainText('Completed 6 trials');
+    const params=(await page.locator('#qr-params').textContent())!,p=qrNumber(params,'p'),y=qrNumber(params,'y');
+    const m0=qrNumber(params,'challenge m0'),m1=qrNumber(params,'challenge m1');
+    expect(p).toBe(2039n);const symbols=[qrLegendre(m0,p),qrLegendre(m1,p)];
+    let wins=0,repeats=0;const seen=new Set<string>();
+    const rows=page.locator('.qr-trial');
+    for(let i=0;i<6;i++){
+      const row=rows.nth(i);if(i>=3)await row.locator('summary').click();await expect(row.locator('pre')).toBeVisible();
+      const text=(await row.locator('pre').textContent())!,c1=qrNumber(text,'c1'),c2=qrNumber(text,'c2');
+      const ly=qrLegendre(y,p),l1=qrLegendre(c1,p),l2=qrLegendre(c2,p);
+      expect(qrNumber(text,'Legendre(y)')).toBe(ly);expect(qrNumber(text,'Legendre(c1)')).toBe(l1);expect(qrNumber(text,'Legendre(c2)')).toBe(l2);
+      const observed=l2*(ly===-1n&&l1===-1n?-1n:1n);
+      const guess=symbols[0]===symbols[1]||observed===symbols[0]?0n:1n,truth=qrNumber(text,'truth');
+      expect(qrNumber(text,'guess')).toBe(guess);expect(truth).toBe(BigInt(i%2));
+      const correct=guess===truth;expect(text).toContain(`correct=${correct}`);wins+=Number(correct);
+      expect(text).toContain('roundTrip=true');
+      if(setting!=='A'){expect(modPow(c1,(p-1n)/2n,p)).toBe(1n);expect(modPow(y,(p-1n)/2n,p)).toBe(1n);expect(text).toContain('subgroupChecks=true');}
+      const tag=`${c1}:${c2}`;expect(text).toContain(`repeated=${seen.has(tag)}`);repeats+=Number(seen.has(tag));seen.add(tag);
+    }
+    await expect(page.locator('#qr-tally')).toHaveText(`${wins} / 6 correct guesses (${(wins/6*100).toFixed(1)}%).`);
+    await expect(page.locator('#qr-checks')).toContainText('6 / 6 decryption round-trips');
+    await expect(page.locator('#qr-checks')).toContainText(`${repeats} repeated ciphertexts observed`);
+    if(setting==='C'){
+      expect(wins).toBe(3);await expect(page.locator('#qr-limit')).toContainText('not on this measured win rate');
+      await expect(page.locator('#qr-result [data-verdict]')).toHaveAttribute('data-verdict','limited');
+    }else{
+      expect(wins).toBe(6);await expect(page.locator('#qr-result [data-verdict]')).toHaveClass('qr-verdict qr-alarm');
+    }
+  });
+}
+
+test('QR negative claim: valid randomized subgroup ciphertexts still leak a message bit',async({page})=>{
+  await qrSeededFixture(page);await page.locator('[data-qr-setting="B"]').click();await page.locator('#qr-run').click();
+  await expect(page.locator('#qr-tally')).toHaveText('6 / 6 correct guesses (100.0%).');
+  await expect(page.locator('#qr-checks')).toContainText('6 / 6 public-key and c₁ subgroup checks passed; c₂ is not checked');
+  await expect(page.locator('#qr-checks')).toContainText('6 / 6 decryption round-trips');
+  await expect(page.locator('#qr-checks')).toContainText('Fresh ephemeral k drawn for every encryption');
+  await expect(page.locator('#qr-result [data-verdict]')).toHaveText('⚠ VALID AND RANDOMISED — AND ONE BIT LEAKED');
+  await expect(page.locator('#qr-negative')).toHaveText('Fresh randomness and a prime-order subgroup do not by themselves hide the message: in this lab’s Exhibit 1 encryption, the quadratic character of m passes straight through to c₂.');
+  // The primitive checks above are successful; this security limitation must still be visible.
+  await expect(page.locator('#qr-negative')).toBeVisible();
+});
+
+test('QR Euler criterion, no-op selection, input retirement and refused ranges',async({page})=>{
+  await qrSeededFixture(page);await expect(page.locator('[data-qr-setting="C"]')).toHaveAttribute('aria-pressed','true');
+  await page.locator('#qr-euler-input').fill('7');await expect(page.locator('#qr-euler')).toHaveText('7^1019 mod 2039 = 2038; Legendre = -1. A non-square (quadratic non-residue).');
+  await page.locator('#qr-run').click();await expect(page.locator('#qr-tally')).not.toBeEmpty();const tally=await page.locator('#qr-tally').textContent();
+  await page.locator('[data-qr-setting="C"]').click();await expect(page.locator('#qr-tally')).toHaveText(tally!);
+  await page.locator('[data-qr-setting="B"]').click();await expect(page.locator('#qr-result')).toBeEmpty();await expect(page.locator('#qr-transcripts')).toBeEmpty();
+  await page.locator('#qr-m0').fill('0');await page.locator('#qr-run').click();await expect(page.locator('#qr-status')).toContainText('[1, p-1]');
+  await page.locator('#qr-m0').fill('1020');await page.locator('[data-qr-setting="C"]').click();await page.locator('#qr-run').click();await expect(page.locator('#qr-status')).toContainText('outside the encodable range [1, q]');
+  await page.locator('#qr-m0').fill('2');await page.locator('#qr-trials').fill('1001');await page.locator('#qr-run').click();await expect(page.locator('#qr-status')).toContainText('[1, 1000]');
+  await page.locator('#qr-group').selectOption('group14');await expect(page.locator('#qr-trials')).toHaveValue('8');await expect(page.locator('#qr-m1')).toHaveValue('11');await expect(page.locator('#qr-result')).toBeEmpty();
 });

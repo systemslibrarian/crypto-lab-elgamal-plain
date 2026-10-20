@@ -1,3 +1,4 @@
+import { qrMarkup, mountQRPanel } from './qrPanel';
 import './style.css';
 import { decrypt, encrypt, encryptWithEphemeral, generateKeyPair, messageToText, multiplyHomomorphic, rerandomize, textToMessage, type ElGamalCiphertext, type ElGamalKeyPair } from './elgamal';
 import { GROUP14, TOY_GROUP, type ElGamalGroup } from './groups';
@@ -61,7 +62,7 @@ app.innerHTML = `
       <p class="lesson">Security rests on the <strong>discrete logarithm problem</strong>: the public key is
         <code>y = g<sup>x</sup> mod p</code>, yet recovering the private key <code>x</code> from <code>y</code>
         is believed infeasible for large <code>p</code>. Each encryption draws a fresh ephemeral <code>k</code>,
-        so the same message never produces the same ciphertext twice.</p>
+        so the same message can produce different ciphertexts (random choices can also repeat). Non-determinism alone is not semantic security: <a href="#exhibit-qr">see the message bit that still leaks</a>.</p>
       <div class="grid two">
         <label for="group-select">
           Group
@@ -221,6 +222,8 @@ app.innerHTML = `
         <button class="copy-btn" type="button" data-copy="maul-output">Copy</button>
       </div>
     </section>
+
+    ${qrMarkup}
 
     <section class="card defense" aria-labelledby="exhibit7-title">
       <h2 id="exhibit7-title"><span class="badge defense-badge" aria-hidden="true"></span> Defense: Authenticated ElGamal</h2>
@@ -1553,3 +1556,5 @@ must<HTMLButtonElement>('sigreuse-btn').addEventListener('click', () => {
     setError(sigreuseOut, error);
   }
 });
+
+mountQRPanel();
