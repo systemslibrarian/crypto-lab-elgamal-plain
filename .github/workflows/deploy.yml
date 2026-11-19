@@ -22,40 +22,32 @@ permissions:
   contents: read
 
 jobs:
+  # The gate, called rather than copied -- the same file the Dependabot
+  # auto-merge waits on, so what merges a bump and what publishes it are
+  # one definition and cannot drift apart.
+  gate:
+    uses: ./.github/workflows/gate.yml
+
   build:
+    needs: gate
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v7
-
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
-
       - name: Install dependencies
         run: npm ci
-
-      - name: Test
-        run: npm test
-
-      - name: Build
-        run: npm run build
-
-      - name: Install Playwright browser
-        run: npx playwright install --with-deps chromium
-
-      - name: Browser gate (axe-core WCAG A/AA + functional claims)
-        run: npm run test:e2e
-
       - uses: actions/upload-pages-artifact@v5
         with:
           path: dist
 
   deploy:
-    needs: build
+    needs: [gate, build]
     runs-on: ubuntu-latest
     permissions:
       pages: write
